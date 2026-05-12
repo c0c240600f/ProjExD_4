@@ -1,3 +1,4 @@
+from cmath import inf
 import math
 import os
 import random
@@ -126,6 +127,8 @@ class Bomb(pg.sprite.Sprite):
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
+        # EMPで無力化されたかの値 これが真だと触れてもパスされる
+        self.kill_disabled = False
 
     def update(self):
         """
@@ -223,6 +226,47 @@ class Enemy(pg.sprite.Sprite):
         self.rect.move_ip(self.vx, self.vy)
 
 
+class EMP:
+    """
+    電子パルスを実装するクラス
+    """
+    def __init__(self, enemy_group: pg.sprite.Group, bomb_group: pg.sprite.Group, screen_surface: pg.Surface):
+        """電子パルスの初期化処理
+
+        Args:
+            enemy_group (pg.sprite.Group): 敵のグループ
+            bomb_group (pg.sprite.Group): 爆弾のグループ
+            screen_surface (pg.Surface): 画面Surface
+        """
+        self.enemy_group = enemy_group
+        self.bomb_group = bomb_group
+        self.screen_surface = screen_surface
+
+        self.yellow_bg = pg.Surface((WIDTH, HEIGHT))
+        self.yellow_bg.fill((255, 255, 0))
+        self.yellow_bg.set_alpha(70)
+    
+    def update(self, key_lst: list[bool], score: Score):
+        """EMPを起動させる関数
+
+        Args:
+            key_lst (list[bool]): pygameのキーリスト
+            score (Score): スコアクラスのインスタンス
+        """
+        if key_lst[pg.K_e]:
+            if score.value >= 20:
+                score.value -= 20
+                self.screen_surface.blit(self.yellow_bg, (0, 0))
+                for enemy in self.enemy_group:
+                    enemy.interval = inf
+                    enemy.image = pg.transform.laplacian(enemy.image)
+                for bomb in self.bomb_group:
+                    bomb.speed /= 2
+                    bomb.kill_disabled = True
+                pg.display.update()
+                time.sleep(0.05)
+
+
 class Score:
     """
     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
@@ -253,6 +297,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    emp = EMP(emys, bombs, screen)
 
     tmr = 0
     clock = pg.time.Clock()
@@ -283,11 +328,15 @@ def main():
             score.value += 1  # 1点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+            # EMPによって無力化された爆弾は触れてもパスする
+            if bomb.kill_disabled:
+                pass
+            else:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -299,6 +348,8 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+        emp.update(key_lst, score)
+        
         pg.display.update()
         tmr += 1
         clock.tick(50)
