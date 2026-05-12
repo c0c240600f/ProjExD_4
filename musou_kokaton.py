@@ -285,6 +285,22 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class Life:
+    """
+    残機を表示するクラス
+    """
+    def __init__(self, num: int): 
+        self.num = num
+        self.image = pg.Surface((40, 40))
+        self.image.set_colorkey((0, 0, 0))
+        points = [(16*math.sin(t/100)**3 +20,
+                   -(13*math.cos(t/100)-5*math.cos(2*t/100)-2*math.cos(3*t/100)-math.cos(4*t/100)) +20
+                   ) for t in range(0,628) ]
+        pg.draw.polygon(self.image, (255, 0, 0), points)
+
+    def update(self, screen: pg.Surface):
+        for i in range(self.num):
+            screen.blit(self.image, (WIDTH - 50 * (i + 1), HEIGHT - 50))
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
@@ -297,6 +313,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    life = Life(3)
     emp = EMP(emys, bombs, screen)
 
     tmr = 0
@@ -328,15 +345,17 @@ def main():
             score.value += 1  # 1点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+            life.num -= 1
             # EMPによって無力化された爆弾は触れてもパスする
             if bomb.kill_disabled:
                 pass
             else:
                 bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-                score.update(screen)
-                pg.display.update()
-                time.sleep(2)
-                return
+            if life.num == 0:
+                    score.update(screen)
+                    pg.display.update()
+                    time.sleep(2)
+                    return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -348,6 +367,7 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+        life.update(screen)
         emp.update(key_lst, score)
         
         pg.display.update()
